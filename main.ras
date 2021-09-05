@@ -1,0 +1,334 @@
+program JumpMoFoJump;
+@use "screen"
+var	
+	const spriteLocAddr : address = $800+2000;
+	const spriteLoc: integer = $3000;
+	spriteLocIdx: byte = SpriteLoc/64;
+	
+	gameOver: boolean;
+	score: integer;
+	hiScore: integer = 0;
+	
+	sprites:incbin("mysprites.bin",spriteLoc);
+	
+	spriteX: integer;
+	spriteY: byte;
+	spriteXBar: integer;
+	spriteYPos: byte;
+	spriteColor: byte;
+	isMovingXN: boolean;
+	isMovingXP: boolean;
+	
+	jumpActive: boolean;
+
+// quick lowest jump shallan50k aug 2021 compo release jump ;)
+	const jumpTime: byte = 40;
+	jumpOffset: array[jumpTime] of byte = (0,1,3,5,6,8,9,11,12,13,15,16,17,18,18,19,20,20,20,20,20,20,20,20,19,18,18,17,16,15,13,12,11,9,8,6,5,3,1,0);
+
+//	quick low jump
+//	const jumpTime: byte = 40;
+//	jumpOffset: array[jumpTime] of byte = (0,4,8,12,16,19,23,27,30,33,36,39,41,44,46,47,48,49,50,50,50,50,49,48,47,46,44,41,39,36,33,30,27,23,19,16,12,8,4,0);
+
+//	quick jump
+//	const jumpTime: byte = 40;
+//	jumpOffset: array[jumpTime] of byte = (0,8,16,24,31,39,46,53,60,66,72,78,83,87,91,94,97,98,100,100,100,100,98,97,94,91,87,83,78,72,66,60,53,46,39,31,24,16,8,0);
+	
+//	Normal jump	
+//	const jumpTime: byte = 85;
+//	jumpOffset: array[jumpTime] of byte = (0,1,3,5,7,9,11,13,15,16,18,20,22,23,25,27,28,30,31,33,34,36,37,38,39,41,42,43,44,45,45,46,47,48,48,49,49,50,50,50,50,50,50,50,50,50,50,50,49,49,48,48,47,46,45,45,44,43,42,41,39,38,37,36,34,33,31,30,28,27,25,23,22,20,18,16,15,13,11,9,7,5,3,1,0);
+
+//  normal hi jump
+//	const jumpTime: byte = 85;	
+//	jumpOffset: array[jumpTime] of byte = (0,3,7,11,15,18,22,26,29,33,36,40,43,47,50,53,56,59,62,65,68,71,74,76,78,81,83,85,87,89,90,92,94,95,96,97,98,99,99,100,100,100,100,100,100,100,99,99,98,97,96,95,94,92,90,89,87,85,83,81,78,76,74,71,68,65,62,59,56,53,50,47,43,40,36,33,29,26,22,18,15,11,7,3,0);
+
+//slow normjump
+//	const jumpTime: byte = 200;
+//	jumpOffset: array[jumpTime] of byte = (0,0,1,2,3,4,4,5,6,7,8,8,9,10,11,11,12,13,14,15,15,16,17,18,18,19,20,21,21,22,23,23,24,25,26,26,27,28,28,29,30,30,31,32,32,33,33,34,35,35,36,36,37,37,38,38,39,39,40,40,41,41,42,42,43,43,44,44,44,45,45,45,46,46,46,47,47,47,48,48,48,48,49,49,49,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,48,48,48,48,47,47,47,46,46,46,45,45,45,44,44,44,43,43,42,42,41,41,40,40,39,39,38,38,37,37,36,36,35,35,34,33,33,32,32,31,30,30,29,28,28,27,26,26,25,24,23,23,22,21,21,20,19,18,18,17,16,15,15,14,13,12,11,11,10,9,8,8,7,6,5,4,4,3,2,1,0,0);
+
+// Slow highjump
+//	const jumpTime: byte = 200;
+//	jumpOffset: array[jumpTime] of byte = (0,1,3,4,6,7,9,11,12,14,15,17,19,20,22,23,25,26,28,29,31,32,34,35,37,38,40,41,43,44,46,47,48,50,51,53,54,55,57,58,59,60,62,63,64,65,67,68,69,70,71,72,73,74,76,77,78,79,80,81,81,82,83,84,85,86,87,87,88,89,90,90,91,92,92,93,94,94,95,95,96,96,97,97,97,98,98,99,99,99,99,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,99,99,99,99,98,98,97,97,97,96,96,95,95,94,94,93,92,92,91,90,90,89,88,87,87,86,85,84,83,82,81,81,80,79,78,77,76,74,73,72,71,70,69,68,67,65,64,63,62,60,59,58,57,55,54,53,51,50,48,47,46,44,43,41,40,38,37,35,34,32,31,29,28,26,25,23,22,20,19,17,15,14,12,11,9,7,6,4,3,1,0);
+
+interrupt MainRaster();
+begin
+	startirq(1);
+	Joystick(2);
+	closeirq();
+end;
+
+procedure Cls();
+begin
+	ClearScreen(key_space, screen_char_loc);
+	Screen::FillColorRam80(yellow);
+end;
+
+procedure WaitJoyButton();
+begin
+	if joystickbutton then
+	begin
+		while(joystickbutton) do;
+	end;
+    while(joystickbutton<>1) do;
+    while(joystickbutton) do;	
+end;
+
+procedure IntroScreen();
+begin
+	Cls();
+
+	moveto(25, 1, hi(screen_char_loc));
+    printstring("half of amff aka airjuri", 0, screen_width);
+	moveto(33, 3, hi(screen_char_loc));
+    printstring("presents", 0, screen_width);
+  	moveto(31, 9, hi(screen_char_loc));
+    printstring("score or die", 0, screen_width);
+    
+    WaitJoyButton();
+	
+end;
+
+procedure MainMenu();
+begin
+	Cls();
+
+	ToggleBit(sprite_bitmask,0,0);
+	ToggleBit(sprite_bitmask,1,0);
+	
+	moveto(20, 1, hi(screen_char_loc));
+    printstring("score or die", 0, screen_width);
+	moveto(20, 3, hi(screen_char_loc));
+    printstring("get 65000 points to be mega champion!", 0, screen_width);
+	moveto(20, 5, hi(screen_char_loc));
+    printstring("hint: do not die", 0, screen_width);
+  	moveto(20, 15, hi(screen_char_loc));
+    printstring("joystick 2, push button to start", 0, screen_width);
+  	moveto(20, 9, hi(screen_char_loc));
+    printstring("highest score of session:", 0, screen_width);
+  	moveto(46, 9, hi(screen_char_loc));
+    printdecimal(hiScore, 4);
+    
+    WaitJoyButton();
+end;
+
+
+procedure GameOver();
+var
+	
+begin
+	Cls();
+	
+  	moveto(35, 9, hi(screen_char_loc));
+    printstring("game over", 0, screen_width);
+    
+    if score>=hiScore then
+    begin
+	    hiScore:=score;
+	    moveto(20,11,hi(screen_char_loc));
+	    printstring("congratulations for high score", 0, screen_width);
+	    moveto(20,13,hi(screen_char_loc));
+	    if hiScore<64000 then 
+		begin
+			printstring("rank: regular champ", 0, screen_width);
+	    end
+		else 
+		begin
+		 	printstring("rank: mega champion 65000! it is enough!", 0, screen_width);
+	    end;
+		moveto(20,15,hi(screen_char_loc));
+	    printstring("new high score:", 0, screen_width);
+	    moveto(36,15,hi(screen_char_loc));
+	    printdecimal(hiScore, 4);
+    end
+    else
+    begin
+  		moveto(35, 11, hi(screen_char_loc));
+    	printstring("sad times", 0, screen_width);
+	end;
+	
+	WaitJoyButton();
+end;
+
+
+
+procedure jumpper();
+var
+	jumpStage:byte = 0;
+begin
+		
+	inc(jumpStage);
+	
+	if jumpStage>=jumpTime then 
+	begin
+		jumpActive:=0;
+		jumpStage:=0;
+	end;
+end;
+
+procedure AdvanceRoll();
+var
+	rollStage:integer = 2;
+	rollSpeed:byte = 0;
+	spriteIdx:byte = 0;
+begin
+	inc(rollSpeed); 
+	if rollSpeed>3 then
+	begin
+		rollSpeed:=0;
+		inc(rollStage);
+		if rollStage>5 then rollStage:=2;
+		spriteIdx:=spriteLocIdx+rollStage;
+	end;
+end;
+
+procedure ScoreOrDie();
+begin
+	if ((spriteX > spriteXBar-8) and spriteX < spriteXBar+8 )then
+	begin
+		if spriteYPos < 229-15 then
+		begin
+			score:=score+5;
+			moveto(7, 0, hi(screen_char_loc));
+    		printdecimal(score,4);
+		end
+		else
+		begin
+			gameOver:=1;
+		end;
+	end;
+	
+end;
+		
+	
+	
+procedure GameLoop();
+begin
+	score:= 0;
+	spriteX:= 160;
+	spriteY:= 229;
+	spriteXBar:= 511;
+//	spriteYPos:= 100;
+	isMovingXN:= 0;
+	isMovingXP:= 0;
+	jumpActive:= 0;
+	jumpStage:= 0;
+	
+	spriteIdx:= spriteLocIdx + rollStage;
+	
+	Cls();
+	moveto(0, 0, hi(screen_char_loc));
+    printstring("score:", 0, screen_width);
+	moveto(7, 0, hi(screen_char_loc));
+	printdecimal(score,4);
+	
+	// Sprites to start position
+	SpritePos(spriteX,spriteYPos,0);
+	SpritePos(spriteXBar,229,1);
+
+	WaitForVerticalBlank();
+	// Sprites on
+	ToggleBit(sprite_bitmask,0,1);
+	ToggleBit(sprite_bitmask,1,1);
+	
+	gameOver:= 0;
+	While (gameOver<>1) do
+	begin
+				
+		if jumpActive=1 then
+		begin
+			if isMovingXN=1 then
+			begin
+				spriteX:=spriteX-2;
+				if spriteX<2 then spriteX:=343;
+			end
+			else if isMovingXP=1 then
+			begin
+				spriteX:=spriteX+2;
+				if spriteX>343 then spriteX:=2;							
+			end;
+		end
+		else 
+		begin
+			// Don't need y movement... yet.
+			if (joystickup and (spriteY>0)) then dec(spriteY);
+			if (joystickdown and (spriteY<229)) then inc(spriteY);		
+			
+			isMovingXN:=0;
+			isMovingXP:=0;
+			if joystickleft then
+			begin
+				spriteLocAddr[0]:=spriteLocIdx+1;
+				isMovingXN:=1;
+				spriteX:=spriteX-2;
+				if spriteX<2 then spriteX:=343;	
+			end
+			else if joystickright then
+			begin
+				spriteLocAddr[0]:=spriteLocIdx;
+				isMovingXP:=1;
+				spriteX:=spriteX+2;
+				if spriteX>343 then spriteX:=2;			
+			end;
+		end;
+		
+		if joystickbutton then jumpActive:=1;		// Activate jump if button is pressed
+		
+		if jumpActive=1 then jumpper(); 			// Jump offset calculation
+		spriteYPos:=spriteY-jumpOffset[jumpStage]; 	// calculate actual y position
+		
+		if spriteYPos>spriteY then spriteYPos:=0; 	// Check if actual calculated Y position is wrapped
+		
+		spriteXBar:=spriteXBar-2;//(Random() & 3);// - 1;					// Move "enemy"
+		if spriteXBar<10 then 
+		begin
+			spriteXBar:=330;// + (Random() >> 1);
+		end;
+		
+		ScoreOrDie();	// CHeck the collision / score calculation
+		
+		if score>=65000 then gameOver:=1;		// Flag out of loop if player gets too much score :D
+		
+		AdvanceRoll();	// handle sprite animation speed
+		
+		WaitForVerticalBlank();
+		spriteLocAddr[1]:=spriteIdx;
+		SpritePos(spriteX,spriteYPos,0);
+		SpritePos(spriteXBar,229,1);
+		
+	end;
+
+end;
+
+begin
+	// Initialize the screen + enable VIC4
+	Screen::Init();
+	Screen::EnableVIC4();
+	Screen::spritePointerAddress:=#spriteLocAddr;
+
+	StartRasterChain(MainRaster(),0,1);
+
+	poke(^$d100, 2, $ef); // r
+	poke(^$d200, 2, $22); // g
+	poke(^$d300, 2, $aa); // b
+	
+	poke(^$d100, 3, $00); // r
+	poke(^$d200, 3, $77); // g
+	poke(^$d300, 3, $00); // b
+	
+	screen_bg_col := 3;
+	screen_fg_col := black;
+
+	spriteLocAddr[0]:=spriteLocIdx+1; 
+	spriteLocAddr[1]:=spriteLocIdx+2;
+	
+	sprite_color[0]:=1;
+	sprite_color[1]:=2;
+	
+	IntroScreen();
+	
+	while(1) do
+	begin
+		MainMenu();
+		GameLoop();
+		GameOver();		
+	end;
+end.
