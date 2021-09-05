@@ -249,8 +249,8 @@ begin
 		else 
 		begin
 			// Don't need y movement... yet.
-			if (joystickup and (spriteY>0)) then dec(spriteY);
-			if (joystickdown and (spriteY<229)) then inc(spriteY);		
+			//if (joystickup and (spriteY>0)) then dec(spriteY);
+			//if (joystickdown and (spriteY<229)) then inc(spriteY);		
 			
 			isMovingXN:=0;
 			isMovingXP:=0;
