@@ -1,7 +1,7 @@
 program JumpMoFoJump;
 @use "screen"
 var	
-	const spriteLocAddr : address = $800+2000;
+	const spriteLocAddr : address = $320;
 	const spriteLoc: integer = $3000;
 	spriteLocIdx: byte = SpriteLoc/64;
 	
@@ -81,11 +81,11 @@ begin
 	Cls();
 
 	moveto(25, 1, hi(screen_char_loc));
-    printstring("half of amff aka airjuri", 0, screen_width);
+    printstring("HALF OF AMFF AKA AIRJURI", 0, screen_width);
 	moveto(33, 3, hi(screen_char_loc));
-    printstring("presents", 0, screen_width);
+    printstring("PRESENTS", 0, screen_width);
   	moveto(31, 9, hi(screen_char_loc));
-    printstring("score or die", 0, screen_width);
+    printstring("SCORE OR DIE", 0, screen_width);
     
     WaitJoyButton();
 	
@@ -99,15 +99,15 @@ begin
 	ToggleBit(sprite_bitmask,1,0);
 	
 	moveto(20, 1, hi(screen_char_loc));
-    printstring("score or die", 0, screen_width);
+    printstring("SCORE OR DIE", 0, screen_width);
 	moveto(20, 3, hi(screen_char_loc));
-    printstring("get 65000 points to be mega champion!", 0, screen_width);
+    printstring("GET 65000 POINTS TO BE MEGA CHAMPION!", 0, screen_width);
 	moveto(20, 5, hi(screen_char_loc));
-    printstring("hint: do not die", 0, screen_width);
+    printstring("HINT: DO NOT DIE", 0, screen_width);
   	moveto(20, 15, hi(screen_char_loc));
-    printstring("joystick 2, push button to start", 0, screen_width);
+    printstring("JOYSTICK 2, PUSH BUTTON TO START", 0, screen_width);
   	moveto(20, 9, hi(screen_char_loc));
-    printstring("highest score of session:", 0, screen_width);
+    printstring("HIGHEST SCORE OF SESSION:", 0, screen_width);
   	moveto(46, 9, hi(screen_char_loc));
     printdecimal(hiScore, 4);
     
@@ -120,31 +120,31 @@ begin
 	Cls();
 	
   	moveto(35, 9, hi(screen_char_loc));
-    printstring("game over", 0, screen_width);
+    printstring("GAME OVER", 0, screen_width);
     
     if score>=hiScore then
     begin
 	    hiScore:=score;
 	    moveto(20,11,hi(screen_char_loc));
-	    printstring("congratulations for high score", 0, screen_width);
+	    printstring("CONGRATULATIONS FOR HIGH SCORE", 0, screen_width);
 	    moveto(20,13,hi(screen_char_loc));
 	    if hiScore<64000 then 
 		begin
-			printstring("rank: regular champ", 0, screen_width);
+			printstring("RANK: REGULAR CHAMP", 0, screen_width);
 	    end
 		else 
 		begin
-		 	printstring("rank: mega champion 65000! it is enough!", 0, screen_width);
+		 	printstring("RANK: MEGA CHAMPION 65000! IT IS ENOUGH!", 0, screen_width);
 	    end;
 		moveto(20,15,hi(screen_char_loc));
-	    printstring("new high score:", 0, screen_width);
+	    printstring("NEW HIGH SCORE:", 0, screen_width);
 	    moveto(36,15,hi(screen_char_loc));
 	    printdecimal(hiScore, 4);
     end
     else
     begin
   		moveto(35, 11, hi(screen_char_loc));
-    	printstring("sad times", 0, screen_width);
+    	printstring("SAD TIMES", 0, screen_width);
 	end;
 	
 	WaitJoyButton();
@@ -176,11 +176,53 @@ begin
 	if rollSpeed>3 then		// rollspeed is just calculated, no interrupts needed.
 	begin
 		rollSpeed:=0;
-		inc(rollStage);
+		rollStage:=rollStage+1;
 		if rollStage>5 then rollStage:=2;	// 5 is last sprite in animation.
 		spriteIdx:=spriteLocIdx+rollStage;
 	end;
 end;
+
+procedure To3Mhz();
+begin
+	asm("
+        lda #$00
+        sta $d06f
+
+        ldx #$47
+        stx $d02f
+        ldx #$53
+        stx $d02f
+        lda $d031
+        ora #$40
+        sta $d031
+        lda $d054
+        and #$bf
+        sta $d054
+    ");
+end;
+
+procedure To40Mhz();
+begin
+	asm("
+        lda #$00
+        sta $d06f
+        lda $d054
+        ora #$40
+        sta $d054
+    ");
+end;
+
+
+//        ldx #$47
+//        stx $d02f
+//        ldx #$53
+//        stx $d02f
+//        lda $d031
+//        ora #$40
+
+//        sta $d031
+
+
 
 procedure ScoreOrDie();
 begin
@@ -221,7 +263,7 @@ begin
 	
 	Cls();
 	moveto(0, 0, hi(screen_char_loc));
-    printstring("score:", 0, screen_width);
+    printstring("SCORE:", 0, screen_width);
 	moveto(7, 0, hi(screen_char_loc));
 	printdecimal(score,4);
 	
@@ -310,7 +352,12 @@ begin
 	// Initialize the screen + enable VIC4
 	Screen::Init();
 	Screen::EnableVIC4();
+	//Screen::Set80ColumnMode();
 	Screen::spritePointerAddress:=#spriteLocAddr;
+
+	poke(^$d06c, 0, lo(spriteLocAddr));
+    poke(^$d06d, 0, hi(spriteLocAddr));
+    poke(^$d06e, 0, 0); //128
 
 	StartRasterChain(MainRaster(),0,1);
 
@@ -328,17 +375,21 @@ begin
 	screen_fg_col := black;
 
 	spriteLocAddr[0]:=spriteLocIdx+1; 
-	spriteLocAddr[1]:=spriteLocIdx+2;
+	spriteLocAddr[2]:=spriteLocIdx+2;
 	
 	sprite_color[0]:=1;
 	sprite_color[1]:=2;
+	
+	To3Mhz();
 	
 	IntroScreen();
 	
 	while(1) do
 	begin
 		MainMenu();
+		To40Mhz();
 		GameLoop();
+		To3Mhz();
 		GameOver();		
 	end;
 end.
